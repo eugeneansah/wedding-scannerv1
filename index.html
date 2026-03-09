@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Wedding Check-In</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+
+body{
+font-family:system-ui;
+background:linear-gradient(135deg,#eef2ff,#f8fafc);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+margin:0;
+}
+
+.card{
+background:white;
+padding:30px;
+border-radius:18px;
+width:380px;
+box-shadow:0 10px 40px rgba(0,0,0,0.1);
+text-align:center;
+}
+
+input{
+width:100%;
+padding:10px;
+margin:8px 0;
+border-radius:8px;
+border:1px solid #ddd;
+}
+
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:10px;
+background:#6366f1;
+color:white;
+font-size:16px;
+cursor:pointer;
+}
+
+#reader{
+margin-top:20px;
+}
+
+.success{
+background:#dcfce7;
+padding:10px;
+border-radius:8px;
+color:#166534;
+}
+
+.error{
+background:#fee2e2;
+padding:10px;
+border-radius:8px;
+color:#991b1b;
+}
+
+</style>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
+import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+
+  
+  const firebaseConfig = {
+  apiKey: "AIzaSyCf0oJPKo1Xr10RGCftzQTfo7S4yzUKWCo",
+  authDomain: "wedding-invite-f7446.firebaseapp.com",
+  projectId: "wedding-invite-f7446",
+  storageBucket: "wedding-invite-f7446.firebasestorage.app",
+  messagingSenderId: "482433303337",
+  appId: "1:482433303337:web:cdafc1cafd9ac2489b6d38",
+  measurementId: "G-Y9LE5PNPXC"
+};
+
+const app=initializeApp(firebaseConfig)
+
+const auth=getAuth(app)
+const db=getFirestore(app)
+
+let staffName=""
+let scanner
+let processing=false
+
+window.login=async function(){
+
+const email=document.getElementById("email").value
+const password=document.getElementById("password").value
+
+const cred=await signInWithEmailAndPassword(auth,email,password)
+
+staffName=email
+
+document.getElementById("login").style.display="none"
+document.getElementById("scanner").style.display="block"
+
+startScanner()
+
+}
+
+async function startScanner(){
+
+scanner=new Html5Qrcode("reader")
+
+await scanner.start(
+{ facingMode:"environment" },
+{ fps:10, qrbox:250 },
+
+async(decodedText)=>{
+
+if(processing) return
+processing=true
+
+const guestRef=doc(db,"guests",decodedText)
+const guestSnap=await getDoc(guestRef)
+
+const result=document.getElementById("result")
+
+if(!guestSnap.exists()){
+
+result.className="error"
+result.innerHTML="Guest not found"
+
+processing=false
+return
+
+}
+
+const guest=guestSnap.data()
+
+if(guest.checkedIn){
+
+result.className="error"
+result.innerHTML="Already checked in"
+
+processing=false
+return
+
+}
+
+await updateDoc(guestRef,{
+
+checkedIn:true,
+scannedBy:staffName,
+time:new Date()
+
+})
+
+result.className="success"
+result.innerHTML="Welcome "+guest.name
+
+processing=false
+
+}
+
+)
+
+}
+
+</script>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<div id="login">
+
+<h2>Staff Login</h2>
+
+<input id="email" placeholder="Email">
+
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+
+</div>
+
+<div id="scanner" style="display:none">
+
+<h2>Scan Guest</h2>
+
+<div id="reader"></div>
+
+<div id="result"></div>
+
+</div>
+
+</div>
+
+</body>
+</html>
